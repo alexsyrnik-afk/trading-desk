@@ -13,6 +13,7 @@
 .calendar-month-metrics .metric{min-height:100px}
 .positive{color:var(--green)!important}.negative{color:var(--red)!important}
 @media(max-width:720px){.calendar-page-layout{grid-template-columns:1fr}.calendar-month-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.calendar-month-metrics .metric{padding:10px;min-height:88px}.calendar-month-metrics .metric span{font-size:10px}.calendar-month-metrics .metric strong{font-size:17px}}
+.pnl-breakdown{margin:5px 0 8px;font-size:11px}.notes-preview{margin:10px 0 12px;padding:10px 12px;border-radius:9px;background:rgba(120,140,165,.08);font-size:13px;line-height:1.5}.notes-text{white-space:normal;overflow-wrap:anywhere}.notes-text strong{color:var(--muted);margin-right:5px}
 </style>
 </head><body>
 <header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account" id="userBadge">ОБЛАЧНЫЙ КАБИНЕТ<strong>Не выполнен вход</strong></div></div></header>
@@ -63,7 +64,7 @@
 <label class="field">ТФ входа<select name="timeframe" required><option>H4</option><option>H3</option><option>H1</option><option>M30</option><option>M15</option><option>1D</option><option>Другое</option></select></label>
 <label class="field">Риск при входе, %<input name="risk_percent" type="number" min="0" step="0.001" placeholder="0.25" required></label>
 <label class="field">Результат<select name="result" id="tradeResult" required><option value="">Сначала выбери результат</option><option value="TP">TP</option><option value="SL">SL</option><option value="PT">TP (частично)</option><option value="PS">SL (частично)</option><option value="BE">Безубыток</option></select></label>
-<label class="field">Финансовый результат, USD<input name="pnl_amount" type="number" step="0.01" placeholder="Например, 500 или -250" required></label>
+<label class="field">Финансовый результат до комиссии и свопа, USD<input name="pnl_amount" type="number" step="0.01" placeholder="Например, 500 или -250" required></label>
 <label class="field">Комиссия, USD<input name="commission" type="number" step="0.01" placeholder="0"></label>
 <label class="field">Своп, USD<input name="swap" type="number" step="0.01" placeholder="Например, +3.50 или -2.40"><span class="hint">Положительное и отрицательное значение допустимы.</span></label>
 <label class="field">Нарушение правил?<select name="rules_violation" required><option value="no">Нет</option><option value="yes">Да</option></select></label>
@@ -155,7 +156,7 @@ function showCalendarDay(dayKey,rows){
  const box=$('calendarDayTrades');
  const date=new Date(dayKey+'T12:00:00').toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
  if(!items.length){box.innerHTML=`<h2>${date}</h2><p class="hint">В этот день сделок нет.</p>`;return;}
- box.innerHTML=`<h2>Сделки за ${date}</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th>Пара</th><th>Направление</th><th>Результат</th><th>P&amp;L</th></tr></thead><tbody>${items.map(t=>`<tr><td>${escapeHtml(t.instrument||'—')}</td><td>${escapeHtml(t.direction||'—')}</td><td>${escapeHtml(resultLabel(t.result))}</td><td>${Number(t.pnl_amount||0)>0?'+':''}${money(t.pnl_amount||0)}</td></tr>`).join('')}</tbody></table></div>`;
+ box.innerHTML=`<h2>Сделки за ${date}</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th>Пара</th><th>Направление</th><th>Результат</th><th>P&amp;L</th></tr></thead><tbody>${items.map(t=>`<tr><td>${escapeHtml(t.instrument||'—')}</td><td>${escapeHtml(t.direction||'—')}</td><td>${escapeHtml(resultLabel(t.result))}</td><td>${netPnl(t)>0?'+':''}${money(netPnl(t))}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function renderCalendarPage(){
  const rows=window.calendarRows||[];
@@ -166,8 +167,8 @@ function renderCalendarPage(){
  const losses=monthRows.filter(t=>['SL','PS'].includes(String(t.result||'').toUpperCase())).length;
  const eligible=wins+losses;
  $('calendarWinrate').textContent=eligible?(wins/eligible*100).toFixed(1)+'%':'—';
- const plus=monthRows.reduce((s,t)=>s+Math.max(0,Number(t.pnl_amount||0)),0);
- const minus=monthRows.reduce((s,t)=>s+Math.min(0,Number(t.pnl_amount||0)),0);
+ const plus=monthRows.reduce((s,t)=>s+Math.max(0,netPnl(t)),0);
+ const minus=monthRows.reduce((s,t)=>s+Math.min(0,netPnl(t)),0);
  $('calendarMonthProfit').textContent='+'+money(plus);
  $('calendarMonthLoss').textContent=money(minus);
 }
@@ -195,8 +196,8 @@ async function loadAnalytics(){const statusEl=$('analyticsStatus'),content=$('an
  if([...select.options].some(o=>o.value===previous))select.value=previous;
  const chosen=select.value;let rows=(trades||[]).filter(t=>!chosen||chosen==='all'||t.account_id===chosen).sort(tradeSort);
  if(!rows.length){status(statusEl,'Для выбранного аккаунта пока нет реальных сделок. Пропущенные сделки сюда не включаются.');return}
- const pnl=rows.reduce((s,t)=>s+Number(t.pnl_amount||0),0),wins=rows.filter(t=>Number(t.pnl_amount||0)>0).length,losses=rows.filter(t=>Number(t.pnl_amount||0)<0).length,breakevens=rows.filter(t=>Number(t.pnl_amount||0)===0).length;
- let equity=0,peak=0,maxDD=0;const curve=[];for(const t of rows){equity+=Number(t.pnl_amount||0);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);curve.push(equity)}
+ const pnl=rows.reduce((s,t)=>s+netPnl(t),0),wins=rows.filter(t=>netPnl(t)>0).length,losses=rows.filter(t=>netPnl(t)<0).length,breakevens=rows.filter(t=>netPnl(t)===0).length;
+ let equity=0,peak=0,maxDD=0;const curve=[];for(const t of rows){equity+=netPnl(t);peak=Math.max(peak,equity);maxDD=Math.max(maxDD,peak-equity);curve.push(equity)}
  $('metricPnl').textContent=(pnl>0?'+':'')+money(pnl);$('metricPnl').style.color=pnl>=0?'var(--green)':'var(--red)';$('metricCount').textContent=String(rows.length);$('metricWinRate').textContent=(wins/rows.length*100).toFixed(1)+'%';$('metricDrawdown').textContent=money(maxDD);
  $('curveTotal').textContent='Итог: '+(pnl>0?'+':'')+money(pnl);drawEquity(curve);
  const cats=['TP','SL','PT','PS','BE'];$('resultBreakdown').innerHTML=cats.map(c=>{const n=rows.filter(t=>String(t.result||'').toUpperCase()===c).length;return `<div class="result-chip"><b>${n}</b><span>${resultLabel(c)}</span></div>`}).join('');
@@ -209,7 +210,7 @@ function renderAnalyticsBreakdown(rows,key,targetId){
  for(const t of rows){
   const label=key==='result'?resultLabel(t[key]):String(t[key]||'Не указано');
   if(!groups.has(label))groups.set(label,{label,count:0,TP:0,PT:0,SL:0,PS:0,BE:0,pnl:0});
-  const g=groups.get(label);g.count++;const r=String(t.result||'').toUpperCase();if(Object.prototype.hasOwnProperty.call(g,r))g[r]++;g.pnl+=Number(t.pnl_amount||0);
+  const g=groups.get(label);g.count++;const r=String(t.result||'').toUpperCase();if(Object.prototype.hasOwnProperty.call(g,r))g[r]++;g.pnl+=netPnl(t);
  }
  const data=[...groups.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'ru'));
  if(!data.length){$(targetId).innerHTML='<div class="empty">Нет данных</div>';return}
@@ -233,10 +234,12 @@ async function loadTrades(){
  for(const t of rows){
   const card=document.createElement('article');card.className='trade';
   const date=t.entry_at?new Date(t.entry_at).toLocaleDateString('ru-RU'):(legacyTradeDate(t)||'Дата не указана');
-  const pnl=Number(t.pnl_amount||0);
+  const pnl=netPnl(t);
   card.innerHTML=`<div class="between"><h3>Сделка №${escapeHtml(t.trade_number??'—')} · ${escapeHtml(t.instrument??'Инструмент не указан')}</h3><span class="pnl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>0?'+':''}$${pnl.toFixed(2)}</span></div>
-  <div class="meta">${escapeHtml(date)} · ${escapeHtml(t.direction??'')} · ${escapeHtml(t.pattern??'')} · ${escapeHtml(t.trade_context??'')} · ${escapeHtml(t.timeframe??'')} · Результат: ${escapeHtml(t.result??'—')} · Риск: ${t.risk_percent==null?'—':escapeHtml(t.risk_percent)+'%' } · Своп: ${t.swap==null?'—':money(t.swap)}</div>
+  <div class="meta">${escapeHtml(date)} · ${escapeHtml(t.direction??'')} · ${escapeHtml(t.pattern??'')} · ${escapeHtml(t.trade_context??'')} · ${escapeHtml(t.timeframe??'')} · Результат: ${escapeHtml(resultLabel(t.result))} · ${escapeHtml(tradeDuration(t))} · Риск: ${t.risk_percent==null?'—':escapeHtml(t.risk_percent)+'%' } · Своп: ${t.swap==null?'—':money(t.swap)}</div>
   <div class="trade-actions"><button class="btn primary" data-add="${t.id}">＋ Добавить скриншот</button><button class="btn" data-edit="${t.id}">Редактировать данные</button><button class="btn danger" data-delete="${t.id}">Удалить сделку</button><input type="file" accept="image/*" multiple class="hidden" id="files-${t.id}"></div>
+  <div class="hint pnl-breakdown">До расходов: ${money(t.pnl_amount)} · Комиссия: ${money(-Math.abs(Number(t.commission||0)))} · Своп: ${money(t.swap||0)} · Чистый итог: ${money(netPnl(t))}</div>
+  <div class="notes-preview">${t.notes?`<div class="notes-text"><strong>Заметки:</strong> ${escapeHtml(t.notes).replace(/\n/g,'<br>')}</div>`:'<div class="hint">Заметок пока нет.</div>'}</div>
   <div class="images" id="images-${t.id}"></div>
   <div class="hint">Скриншоты хранятся приватно в Supabase.</div>
   <div class="panel hidden" id="edit-${t.id}"><h2>Редактирование сделки №${escapeHtml(t.trade_number??'')}</h2><form class="edit-trade-form" data-trade="${t.id}">
@@ -249,8 +252,8 @@ async function loadTrades(){
   <label class="field">Торговая ситуация<select name="trade_context">${['По тренду','От зоны','По тренду и от зоны'].map(v=>`<option ${t.trade_context===v?'selected':''}>${v}</option>`).join('')}</select></label>
   <label class="field">ТФ входа<select name="timeframe">${['H4','H3','H1','M30','M15','1D','Другое'].map(v=>`<option ${t.timeframe===v?'selected':''}>${v}</option>`).join('')}</select></label>
   <label class="field">Риск, %<input name="risk_percent" type="number" step="0.001" value="${t.risk_percent??''}"></label>
-  <label class="field">Результат<select name="result">${['TP','SL','PT','PS','BE'].map(v=>`<option ${t.result===v?'selected':''}>${v}</option>`).join('')}</select></label>
-  <label class="field">Финансовый результат, USD<input name="pnl_amount" type="number" step="0.01" value="${t.pnl_amount??0}"></label>
+  <label class="field">Результат<select name="result">${[['TP','TP'],['SL','SL'],['PT','TP (частично)'],['PS','SL (частично)'],['BE','Безубыток']].map(([v,label])=>`<option value="${v}" ${t.result===v?'selected':''}>${label}</option>`).join('')}</select></label>
+  <label class="field">Финансовый результат до комиссии и свопа, USD<input name="pnl_amount" type="number" step="0.01" value="${t.pnl_amount??0}"></label>
   <label class="field">Комиссия, USD<input name="commission" type="number" step="0.01" value="${t.commission??''}"></label>
   <label class="field">Своп, USD<input name="swap" type="number" step="0.01" value="${t.swap??''}"></label>
   <label class="field">Нарушение правил?<select name="rules_violation"><option value="no" ${t.rules_followed!==false?'selected':''}>Нет</option><option value="yes" ${t.rules_followed===false?'selected':''}>Да</option></select></label>
@@ -267,17 +270,35 @@ async function loadTrades(){
   loadImages(t,card.querySelector('.images'));
  }
 }
+
+function netPnl(t){
+ const gross=Number(t.pnl_amount||0);
+ const commission=Math.abs(Number(t.commission||0));
+ const swap=Number(t.swap||0);
+ return gross-commission+swap;
+}
+function tradeDuration(t){
+ if(!t.entry_at||!t.closed_at)return 'Длительность: не указана';
+ const start=new Date(t.entry_at).getTime(),end=new Date(t.closed_at).getTime();
+ if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)return 'Длительность: не указана';
+ let mins=Math.round((end-start)/60000);
+ const days=Math.floor(mins/1440);mins-=days*1440;
+ const hours=Math.floor(mins/60);mins-=hours*60;
+ const parts=[];if(days)parts.push(days+' дн.');if(hours)parts.push(hours+' ч.');if(mins||!parts.length)parts.push(mins+' мин.');
+ return 'Длительность: '+parts.join(' ');
+}
+
 function toLocalInput(v){if(!v)return '';const d=new Date(v);if(Number.isNaN(d.getTime()))return '';const z=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}T${z(d.getHours())}:${z(d.getMinutes())}`}
 function legacyTradeDate(t){const raw=t.legacy_data?.excel_date;if(!raw)return '';const d=new Date(raw);return Number.isNaN(d.getTime())?'':d.toLocaleDateString('ru-RU')}
 function tradeDateKey(t){const v=t.closed_at||t.entry_at||t.legacy_data?.excel_date;if(!v)return null;const d=new Date(v);if(Number.isNaN(d.getTime()))return null;return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function renderTradeCalendar(rows,targetId='tradeCalendar',monthId='calendarMonth',onPick=null){
  const box=$(targetId);if(!box)return;const y=calendarMonth.getFullYear(),m=calendarMonth.getMonth();$(monthId).textContent=calendarMonth.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
  const byDay={};for(const t of rows){const k=tradeDateKey(t);if(k){(byDay[k] ||= []).push(t)}}
- const totals={};for(const [k,items] of Object.entries(byDay)){totals[k]=items.reduce((sum,t)=>sum+Number(t.pnl_amount||0),0)}
+ const totals={};for(const [k,items] of Object.entries(byDay)){totals[k]=items.reduce((sum,t)=>sum+netPnl(t),0)}
  const first=new Date(y,m,1),offset=(first.getDay()+6)%7,days=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();let html='';
  for(let i=0;i<42;i++){let day,dt,muted=false;if(i<offset){day=prevDays-offset+i+1;dt=new Date(y,m-1,day);muted=true}else if(i>=offset+days){day=i-offset-days+1;dt=new Date(y,m+1,day);muted=true}else{day=i-offset+1;dt=new Date(y,m,day)}
  const key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;const items=byDay[key]||[];const has=items.length>0,val=totals[key]||0;const cls=muted?'muted':has?(val>0?'profit':val<0?'loss':''):'';
- const list=items.map(t=>`<div class="day-tooltip-item"><strong>${escapeHtml(t.instrument||'Пара не указана')} · ${escapeHtml(resultLabel(t.result))}</strong>${escapeHtml(t.direction||'')} · ${Number(t.pnl_amount||0)>0?'+':''}${money(t.pnl_amount||0)}</div>`).join('');
+ const list=items.map(t=>`<div class="day-tooltip-item"><strong>${escapeHtml(t.instrument||'Пара не указана')} · ${escapeHtml(resultLabel(t.result))}</strong>${escapeHtml(t.direction||'')} · ${netPnl(t)>0?'+':''}${money(netPnl(t))}</div>`).join('');
  const tooltip=has?`<div class="day-tooltip"><b>${items.length} ${items.length===1?'сделка':items.length<5?'сделки':'сделок'} · ${val>0?'+':''}${money(val)}</b>${list}</div>`:'';
  html+=`<div class="calendar-day ${cls}" ${onPick?`data-day="${key}" tabindex="0" role="button"`:(has?'tabindex="0" role="button"':'')} title="${has?'Сделки за '+key:'Нет сделок'}"><b>${day}</b>${has?`<span>${val>0?'+':''}${money(val)}</span>`:''}${tooltip}</div>`;
  }
@@ -285,7 +306,7 @@ function renderTradeCalendar(rows,targetId='tradeCalendar',monthId='calendarMont
  if(onPick){box.querySelectorAll('[data-day]').forEach(el=>{const fn=()=>onPick(el.dataset.day);el.addEventListener('click',fn);el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fn()}})});}
  else{box.querySelectorAll('.calendar-day[role="button"]').forEach(el=>el.addEventListener('click',()=>el.classList.toggle('tip-open')));}
 }
-async function saveTradeEdits(e,t){e.preventDefault();const form=e.currentTarget,f=new FormData(form),feedback=form.querySelector('.status'),btn=form.querySelector('button[type=submit]');btn.disabled=true;status(feedback,'Сохраняю…');const entry=f.get('entry_at'),closed=f.get('closed_at');const payload={entry_at:entry?new Date(entry).toISOString():null,closed_at:closed?new Date(closed).toISOString():null,instrument:String(f.get('instrument')||'').trim().toUpperCase(),direction:String(f.get('direction')),pattern:String(f.get('pattern')),trade_context:String(f.get('trade_context')),timeframe:String(f.get('timeframe')),risk_percent:f.get('risk_percent')===''?null:Number(f.get('risk_percent')),result:String(f.get('result')),pnl_amount:Number(f.get('pnl_amount')||0),commission:f.get('commission')===''?null:Number(f.get('commission')),swap:f.get('swap')===''?null:Number(f.get('swap')),rules_followed:String(f.get('rules_violation'))!=='yes',confidence:f.get('confidence')===''?null:Number(f.get('confidence')),notes:String(f.get('notes')||'').trim()||null};const {error}=await supabase.from('trades').update(payload).eq('id',t.id).eq('user_id',currentUser.id);btn.disabled=false;if(error){status(feedback,'Ошибка: '+error.message,true);return}status(feedback,'Изменения сохранены.');await loadTrades();if(currentPage==='analytics')loadAnalytics()}
+async function saveTradeEdits(e,t){e.preventDefault();const form=e.currentTarget,f=new FormData(form),feedback=form.querySelector('.status'),btn=form.querySelector('button[type=submit]');btn.disabled=true;status(feedback,'Сохраняю…');const entry=f.get('entry_at'),closed=f.get('closed_at');const payload={entry_at:entry?new Date(entry).toISOString():null,closed_at:closed?new Date(closed).toISOString():null,instrument:String(f.get('instrument')||'').trim().toUpperCase(),direction:String(f.get('direction')),pattern:String(f.get('pattern')),trade_context:String(f.get('trade_context')),timeframe:String(f.get('timeframe')),risk_percent:f.get('risk_percent')===''?null:Number(f.get('risk_percent')),result:String(f.get('result')),pnl_amount:Number(f.get('pnl_amount')||0),commission:f.get('commission')===''?null:Number(f.get('commission')),swap:f.get('swap')===''?null:Number(f.get('swap')),rules_followed:String(f.get('rules_violation'))!=='yes',confidence:f.get('confidence')===''?null:Number(f.get('confidence')),notes:String(f.get('notes')||'').trim()||null};const {error}=await supabase.from('trades').update(payload).eq('id',t.id).eq('user_id',currentUser.id);btn.disabled=false;if(error){status(feedback,'Ошибка: '+error.message,true);return}status(feedback,'Изменения сохранены.');await loadTrades();if(currentPage==='analytics')await loadAnalytics();if(currentPage==='calendar')await loadCalendarPage()}
 async function deleteTrade(t){
  if(!confirm(`Полностью удалить сделку №${t.trade_number} и все её скриншоты? Это действие необратимо.`))return;
  const card=[...document.querySelectorAll('.trade')].find(el=>el.querySelector('[data-delete]')?.dataset.tradeId===String(t.id));
