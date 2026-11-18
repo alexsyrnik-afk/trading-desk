@@ -14,7 +14,7 @@
 .positive{color:var(--green)!important}.negative{color:var(--red)!important}
 @media(max-width:720px){.calendar-page-layout{grid-template-columns:1fr}.calendar-month-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.calendar-month-metrics .metric{padding:10px;min-height:88px}.calendar-month-metrics .metric span{font-size:10px}.calendar-month-metrics .metric strong{font-size:17px}}
 .pnl-breakdown{margin:5px 0 8px;font-size:11px}.notes-preview{margin:10px 0 12px;padding:10px 12px;border-radius:9px;background:rgba(120,140,165,.08);font-size:13px;line-height:1.5}.notes-text{white-space:normal;overflow-wrap:anywhere}.notes-text strong{color:var(--muted);margin-right:5px}
-</style>
+.trade.calendar-focus{outline:3px solid var(--accent);outline-offset:3px;transition:outline .2s}</style>
 </head><body>
 <header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account" id="userBadge">ОБЛАЧНЫЙ КАБИНЕТ<strong>Не выполнен вход</strong></div></div></header>
 <main>
@@ -156,7 +156,14 @@ function showCalendarDay(dayKey,rows){
  const box=$('calendarDayTrades');
  const date=new Date(dayKey+'T12:00:00').toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
  if(!items.length){box.innerHTML=`<h2>${date}</h2><p class="hint">В этот день сделок нет.</p>`;return;}
- box.innerHTML=`<h2>Сделки за ${date}</h2><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th>Пара</th><th>Направление</th><th>Результат</th><th>P&amp;L</th></tr></thead><tbody>${items.map(t=>`<tr><td>${escapeHtml(t.instrument||'—')}</td><td>${escapeHtml(t.direction||'—')}</td><td>${escapeHtml(resultLabel(t.result))}</td><td>${netPnl(t)>0?'+':''}${money(netPnl(t))}</td></tr>`).join('')}</tbody></table></div>`;
+ box.innerHTML=`<h2>Сделки за ${date}</h2><p class="hint">Нажми на сделку, чтобы открыть её карточку в Forex-журнале.</p><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th>Пара</th><th>Направление</th><th>Результат</th><th>P&amp;L</th><th></th></tr></thead><tbody>${items.map(t=>`<tr><td>${escapeHtml(t.instrument||'—')}</td><td>${escapeHtml(t.direction||'—')}</td><td>${escapeHtml(resultLabel(t.result))}</td><td>${netPnl(t)>0?'+':''}${money(netPnl(t))}</td><td><button type="button" class="btn" data-open-trade="${escapeHtml(t.id)}">Открыть</button></td></tr>`).join('')}</tbody></table></div>`;
+ box.querySelectorAll('[data-open-trade]').forEach(btn=>btn.addEventListener('click',async()=>{
+  const id=btn.dataset.openTrade;
+  openPage('forex');
+  await loadTrades();
+  const card=$('trade-card-'+id);
+  if(card){card.scrollIntoView({behavior:'smooth',block:'center'});card.classList.add('calendar-focus');setTimeout(()=>card.classList.remove('calendar-focus'),2200);}
+ }));
 }
 function renderCalendarPage(){
  const rows=window.calendarRows||[];
@@ -214,7 +221,7 @@ function renderAnalyticsBreakdown(rows,key,targetId){
  }
  const data=[...groups.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label,'ru'));
  if(!data.length){$(targetId).innerHTML='<div class="empty">Нет данных</div>';return}
- $(targetId).innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px"><thead><tr>${['Значение','Сделок','TP','PT','SL','PS','BE','Чистый P&L'].map(x=>`<th style="text-align:left;padding:9px;border-bottom:1px solid var(--line);color:var(--muted)">${x}</th>`).join('')}</tr></thead><tbody>${data.map(g=>`<tr><td style="padding:9px;border-bottom:1px solid var(--line)">${escapeHtml(g.label)}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.count}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.TP}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.PT}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.SL}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.PS}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.BE}</td><td style="padding:9px;border-bottom:1px solid var(--line);color:${g.pnl>=0?'var(--green)':'var(--red)'}">${g.pnl>0?'+':''}${money(g.pnl)}</td></tr>`).join('')}</tbody></table></div>`;
+ $(targetId).innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12px;min-width:620px"><thead><tr>${['Значение','Сделок','TP','TP (частично)','SL','SL (частично)','Безубыток','Чистый P&L'].map(x=>`<th style="text-align:left;padding:9px;border-bottom:1px solid var(--line);color:var(--muted)">${x}</th>`).join('')}</tr></thead><tbody>${data.map(g=>`<tr><td style="padding:9px;border-bottom:1px solid var(--line)">${escapeHtml(g.label)}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.count}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.TP}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.PT}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.SL}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.PS}</td><td style="padding:9px;border-bottom:1px solid var(--line)">${g.BE}</td><td style="padding:9px;border-bottom:1px solid var(--line);color:${g.pnl>=0?'var(--green)':'var(--red)'}">${g.pnl>0?'+':''}${money(g.pnl)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function drawEquity(values){const svg=$('equityChart');svg.innerHTML='';const NS='http://www.w3.org/2000/svg';const add=(tag,attrs)=>{const el=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))el.setAttribute(k,v);svg.appendChild(el);return el};
  const W=800,H=220,pad=24;const vals=[0,...values];let min=Math.min(0,...vals),max=Math.max(0,...vals);if(max===min){max=min+1}const y=v=>H-pad-(v-min)/(max-min)*(H-pad*2);add('line',{x1:pad,y1:y(0),x2:W-pad,y2:y(0),stroke:'#405066','stroke-width':'1','stroke-dasharray':'4 5'});const points=vals.map((v,i)=>`${pad+i*(W-2*pad)/Math.max(1,vals.length-1)},${y(v)}`).join(' ');add('polyline',{points,fill:'none',stroke:values.at(-1)>=0?'#45c49a':'#ff7b83','stroke-width':'3','stroke-linecap':'round','stroke-linejoin':'round'});add('text',{x:pad,y:16,fill:'#93a2b4','font-size':'11'}).textContent=money(max);add('text',{x:pad,y:H-5,fill:'#93a2b4','font-size':'11'}).textContent=money(min)}
@@ -232,7 +239,7 @@ async function loadTrades(){
  if(!rows.length){status($('tradeStatus'),'Forex-сделки пока не найдены.');return}
  $('tradeStatus').classList.add('hidden');
  for(const t of rows){
-  const card=document.createElement('article');card.className='trade';
+  const card=document.createElement('article');card.className='trade';card.id=`trade-card-${t.id}`;
   const date=t.entry_at?new Date(t.entry_at).toLocaleDateString('ru-RU'):(legacyTradeDate(t)||'Дата не указана');
   const pnl=netPnl(t);
   card.innerHTML=`<div class="between"><h3>Сделка №${escapeHtml(t.trade_number??'—')} · ${escapeHtml(t.instrument??'Инструмент не указан')}</h3><span class="pnl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>0?'+':''}$${pnl.toFixed(2)}</span></div>
