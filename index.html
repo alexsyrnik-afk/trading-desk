@@ -134,7 +134,7 @@ $('logoutBtn').addEventListener('click',async()=>{await supabase.auth.signOut();
 $('accountsRefresh').addEventListener('click',loadAccounts);$('accountForm').addEventListener('submit',saveAccount);$('tradeForm').addEventListener('submit',saveTrade);
 $('instrumentSelect').addEventListener('change',e=>{$('otherPairWrap').classList.toggle('hidden',e.target.value!=='OTHER');$('instrumentOther').required=e.target.value==='OTHER';});
 $('calendarPrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderTradeCalendar(window.cachedTrades||[]);});
-$('calendarNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderTradeCalendar(window.cachedTrades||[]);});$('calendarPagePrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderCalendarPage()});$('calendarPageNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendarPage()});$('homeCalendarPrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);loadHomeCalendar();});$('homeCalendarNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);loadHomeCalendar();});$('tradeSortOrder').addEventListener('change',loadTrades);$('journalTradesTab').addEventListener('click',()=>setJournalTab('trades'));$('journalCalendarTab').addEventListener('click',()=>setJournalTab('calendar'));
+$('calendarNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderTradeCalendar(window.cachedTrades||[]);});$('calendarPagePrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderCalendarPage()});$('calendarPageNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendarPage()});$('tradeSortOrder')?.addEventListener('change',loadTrades);$('journalTradesTab').addEventListener('click',()=>setJournalTab('trades'));$('journalCalendarTab').addEventListener('click',()=>setJournalTab('calendar'));
 async function loadHomeCalendar(){
  const {data:rows,error}=await supabase.from('trades').select('*').eq('user_id',currentUser.id).eq('market','forex').eq('trade_type','actual');
  if(error){$('homeTradeCalendar').innerHTML='<div class="empty">Не удалось загрузить календарь: '+escapeHtml(error.message)+'</div>';return}
@@ -223,7 +223,7 @@ async function loadTrades(){
  const list=$('tradeList');list.innerHTML='';status($('tradeStatus'),'Загружаю сделки…');
  const {data:trades,error}=await supabase.from('trades').select('*').eq('user_id',currentUser.id).eq('market','forex').order('trade_number',{ascending:true});
  if(error){status($('tradeStatus'),'Ошибка загрузки сделок: '+error.message,true);return}
- const rows=trades||[];window.cachedTrades=rows;
+ const rows=[...(trades||[])];window.cachedTrades=[...rows];
  const stamp=t=>{const v=t.closed_at||t.entry_at||t.legacy_data?.excel_date;if(!v)return null;const n=new Date(v).getTime();return Number.isFinite(n)?n:null};
  const direction=$('tradeSortOrder')?.value||'newest';
  rows.sort((a,b)=>{const ad=stamp(a),bd=stamp(b);if(ad!==null&&bd!==null&&ad!==bd)return direction==='newest'?bd-ad:ad-bd;if(ad!==null&&bd===null)return -1;if(ad===null&&bd!==null)return 1;const n=Number(a.trade_number||0)-Number(b.trade_number||0);return direction==='newest'?-n:n});
@@ -261,7 +261,7 @@ async function loadTrades(){
   card.querySelector('[data-add]').addEventListener('click',()=>card.querySelector('input[type=file]').click());
   card.querySelector('input[type=file]').addEventListener('change',e=>uploadImages(t,e.target));
   card.querySelector('[data-edit]').addEventListener('click',()=>card.querySelector('#edit-'+t.id).classList.toggle('hidden'));
-  card.querySelector('[data-delete]').addEventListener('click',()=>deleteTrade(t));
+  card.querySelector('[data-delete]').addEventListener('click',e=>{e.preventDefault();deleteTrade(t)});
   card.querySelector('[data-cancel]').addEventListener('click',()=>card.querySelector('#edit-'+t.id).classList.add('hidden'));
   card.querySelector('.edit-trade-form').addEventListener('submit',e=>saveTradeEdits(e,t));
   loadImages(t,card.querySelector('.images'));
@@ -286,7 +286,34 @@ function renderTradeCalendar(rows,targetId='tradeCalendar',monthId='calendarMont
  else{box.querySelectorAll('.calendar-day[role="button"]').forEach(el=>el.addEventListener('click',()=>el.classList.toggle('tip-open')));}
 }
 async function saveTradeEdits(e,t){e.preventDefault();const form=e.currentTarget,f=new FormData(form),feedback=form.querySelector('.status'),btn=form.querySelector('button[type=submit]');btn.disabled=true;status(feedback,'Сохраняю…');const entry=f.get('entry_at'),closed=f.get('closed_at');const payload={entry_at:entry?new Date(entry).toISOString():null,closed_at:closed?new Date(closed).toISOString():null,instrument:String(f.get('instrument')||'').trim().toUpperCase(),direction:String(f.get('direction')),pattern:String(f.get('pattern')),trade_context:String(f.get('trade_context')),timeframe:String(f.get('timeframe')),risk_percent:f.get('risk_percent')===''?null:Number(f.get('risk_percent')),result:String(f.get('result')),pnl_amount:Number(f.get('pnl_amount')||0),commission:f.get('commission')===''?null:Number(f.get('commission')),swap:f.get('swap')===''?null:Number(f.get('swap')),rules_followed:String(f.get('rules_violation'))!=='yes',confidence:f.get('confidence')===''?null:Number(f.get('confidence')),notes:String(f.get('notes')||'').trim()||null};const {error}=await supabase.from('trades').update(payload).eq('id',t.id).eq('user_id',currentUser.id);btn.disabled=false;if(error){status(feedback,'Ошибка: '+error.message,true);return}status(feedback,'Изменения сохранены.');await loadTrades();if(currentPage==='analytics')loadAnalytics()}
-async function deleteTrade(t){if(!confirm(`Полностью удалить сделку №${t.trade_number} и все её скриншоты? Это действие необратимо.`))return;const {data:imgs,error:imgErr}=await supabase.from('trade_images').select('id,storage_path').eq('trade_id',t.id).eq('user_id',currentUser.id);if(imgErr){alert('Не удалось получить список скриншотов: '+imgErr.message);return}const paths=(imgs||[]).map(x=>x.storage_path);if(paths.length){const {error:storageErr}=await supabase.storage.from('trade-screenshots').remove(paths);if(storageErr){alert('Не удалось удалить скриншоты из хранилища: '+storageErr.message);return}}if(imgs?.length){const {error:dbImgErr}=await supabase.from('trade_images').delete().eq('trade_id',t.id).eq('user_id',currentUser.id);if(dbImgErr){alert('Не удалось удалить записи скриншотов: '+dbImgErr.message);return}}const {error}=await supabase.from('trades').delete().eq('id',t.id).eq('user_id',currentUser.id);if(error){alert('Не удалось удалить сделку: '+error.message);return}await loadTrades();if(currentPage==='analytics')loadAnalytics()}
+async function deleteTrade(t){
+ if(!confirm(`Полностью удалить сделку №${t.trade_number} и все её скриншоты? Это действие необратимо.`))return;
+ const card=[...document.querySelectorAll('.trade')].find(el=>el.querySelector('[data-delete]')?.dataset.tradeId===String(t.id));
+ const btn=card?.querySelector('[data-delete]');if(btn){btn.disabled=true;btn.textContent='Удаляю…';}
+ try{
+  const {data:imgs,error:imgErr}=await supabase.from('trade_images').select('id,storage_path').eq('trade_id',t.id).eq('user_id',currentUser.id);
+  if(imgErr)throw new Error('Не удалось получить список скриншотов: '+imgErr.message);
+  const paths=(imgs||[]).map(x=>x.storage_path).filter(Boolean);
+  if(paths.length){
+   const {error:storageErr}=await supabase.storage.from('trade-screenshots').remove(paths);
+   if(storageErr)throw new Error('Не удалось удалить файлы скриншотов: '+storageErr.message);
+  }
+  if(imgs?.length){
+   const {error:dbImgErr}=await supabase.from('trade_images').delete().eq('trade_id',t.id).eq('user_id',currentUser.id);
+   if(dbImgErr)throw new Error('Файлы удалены, но записи скриншотов не удалены: '+dbImgErr.message);
+  }
+  const {data:deleted,error}=await supabase.from('trades').delete().eq('id',t.id).eq('user_id',currentUser.id).select('id');
+  if(error)throw new Error('Не удалось удалить сделку: '+error.message);
+  if(!deleted?.length)throw new Error('База не подтвердила удаление сделки. Проверь RLS-политику DELETE для таблицы trades.');
+  await loadTrades();
+  if(currentPage==='analytics')await loadAnalytics();
+  if(currentPage==='calendar')await loadCalendarPage();
+  alert('Сделка и связанные скриншоты удалены.');
+ }catch(err){
+  alert(err.message||String(err));
+  if(btn){btn.disabled=false;btn.textContent='Удалить';}
+ }
+}
 
 async function loadImages(trade,container){container.innerHTML='';const {data:rows,error}=await supabase.from('trade_images').select('*').eq('trade_id',trade.id).eq('user_id',currentUser.id);if(error){container.innerHTML='<span class="hint">Не удалось загрузить список изображений: '+escapeHtml(error.message)+'</span>';return}for(const row of rows||[]){const {data:obj}=await supabase.storage.from('trade-screenshots').createSignedUrl(row.storage_path,3600);if(!obj?.signedUrl)continue;const box=document.createElement('div');box.className='shot';box.innerHTML=`<img src="${obj.signedUrl}" alt="Скриншот сделки"><button type="button">Удалить</button>`;box.querySelector('img').addEventListener('click',()=>window.open(obj.signedUrl,'_blank','noopener'));box.querySelector('button').addEventListener('click',()=>deleteImage(row,box));container.appendChild(box)}}
 async function uploadImages(trade,input){const files=[...input.files];if(!files.length)return;const folder=folderForTrade(trade);for(const file of files){if(!file.type.startsWith('image/'))continue;const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_');const path=`${currentUser.id}/${folder}/${trade.id}/${Date.now()}_${crypto.randomUUID()}_${safeName}`;const {error:upErr}=await supabase.storage.from('trade-screenshots').upload(path,file,{contentType:file.type,upsert:false});if(upErr){alert('Ошибка загрузки '+file.name+': '+upErr.message);continue}const {error:dbErr}=await supabase.from('trade_images').insert({user_id:currentUser.id,trade_id:trade.id,file_name:file.name,storage_path:path,category:folder});if(dbErr){await supabase.storage.from('trade-screenshots').remove([path]);alert('Файл загружен, но запись не сохранена: '+dbErr.message);continue}}input.value='';const container=$('images-'+trade.id);await loadImages(trade,container)}
