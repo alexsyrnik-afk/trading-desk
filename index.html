@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#10151d">
+<title>Trading Desk</title>
+<link rel="manifest" href="manifest.json">
+<style>
+:root{color-scheme:dark;--bg:#0b1017;--panel:#141c27;--panel2:#1a2532;--line:#293647;--text:#edf3fa;--muted:#93a2b4;--accent:#77a9ff;--green:#45c49a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+header{padding:24px 22px 18px;border-bottom:1px solid var(--line);background:#101721}
+.wrap{max-width:1100px;margin:auto} .top{display:flex;justify-content:space-between;align-items:center;gap:16px}
+.brand{font-size:22px;font-weight:750;letter-spacing:.2px}.sub{color:var(--muted);font-size:13px;margin-top:5px}
+.account{background:var(--panel2);border:1px solid var(--line);padding:10px 13px;border-radius:12px;font-size:13px;color:var(--muted)}
+.account strong{display:block;color:var(--text);font-size:15px;margin-top:3px}
+main{max-width:1100px;margin:auto;padding:24px 22px 100px}
+h1{font-size:24px;margin:0 0 7px}.intro{color:var(--muted);margin:0 0 22px;line-height:1.5}
+.section-title{font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin:26px 0 12px}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.tile{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;min-height:118px;text-align:left;color:var(--text);cursor:pointer;transition:.15s}
+.tile:hover,.tile.active{border-color:var(--accent);background:#182638}
+.tile .ico{font-size:22px;margin-bottom:12px}.tile b{display:block;font-size:16px}.tile span{display:block;color:var(--muted);font-size:12px;margin-top:6px;line-height:1.4}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:16px}
+.panel h2{font-size:18px;margin:0 0 8px}.panel p{color:var(--muted);line-height:1.5;margin:0}
+.account-line{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+.amount{font-size:26px;font-weight:750}.tag{font-size:12px;color:var(--green);border:1px solid #286d5b;padding:5px 9px;border-radius:30px}
+.empty{margin-top:14px;padding:14px;border:1px dashed #405066;border-radius:12px;color:var(--muted);font-size:13px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#101721ed;backdrop-filter:blur(16px);border-top:1px solid var(--line);display:none;justify-content:space-around;padding:10px 6px calc(10px + env(safe-area-inset-bottom));z-index:5}
+nav button{border:0;background:none;color:var(--muted);font-size:11px;display:grid;gap:4px;justify-items:center}
+nav button strong{font-size:18px;font-weight:500}
+.notice{font-size:12px;color:var(--muted);margin-top:20px}
+@media(max-width:700px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}header{padding:18px 16px}main{padding:20px 16px 100px}.account{font-size:11px}.account strong{font-size:13px}}
+@media(max-width:430px){.grid{grid-template-columns:1fr 1fr}.tile{padding:14px;min-height:112px}.tile b{font-size:14px}.tile span{font-size:11px}.brand{font-size:19px}.account{max-width:145px}}
+</style>
+</head>
+<body>
+<header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account">АКТИВНЫЙ АККАУНТ<strong>FundingPips · $100 000</strong></div></div></header>
+<main>
+<h1 id="pageTitle">Главная</h1>
+<p class="intro" id="pageIntro">Все торговые данные в одном месте. Выберите нужный раздел.</p>
+<div class="section-title">Рабочие разделы</div>
+<div class="grid" id="tiles">
+<button class="tile" data-page="forex"><div class="ico">📈</div><b>Forex-журнал</b><span>Реальные сделки и история</span></button>
+<button class="tile" data-page="crypto"><div class="ico">₿</div><b>Crypto-журнал</b><span>Реальные криптосделки</span></button>
+<button class="tile" data-page="missedfx"><div class="ico">👁</div><b>Пропущенные Forex</b><span>Сигналы, в которые не вошли</span></button>
+<button class="tile" data-page="missedcrypto"><div class="ico">◉</div><b>Пропущенные Crypto</b><span>Гипотетическая статистика</span></button>
+<button class="tile" data-page="analytics"><div class="ico">📊</div><b>Аналитика</b><span>Общая и по каждому аккаунту</span></button>
+<button class="tile" data-page="accounts"><div class="ico">▣</div><b>Торговые аккаунты</b><span>Компании, счета и лимиты</span></button>
+</div>
+<div class="section-title">Текущий аккаунт</div>
+<section class="panel">
+<div class="account-line"><div><div class="sub">ПРОП-КОМПАНИЯ · FOREX</div><h2>FundingPips</h2><div class="amount">$100 000</div></div><span class="tag">Первый аккаунт</span></div>
+<div class="empty">Статистика появится после переноса сделок из Excel. Демонстрационные цифры не используются.</div>
+</section>
+<p class="notice">Прототип интерфейса. Данные пока не синхронизируются и не сохраняются в облаке — подключение базы Supabase будет следующим этапом.</p>
+</main>
+<nav id="mobileNav">
+<button data-page="home"><strong>⌂</strong>Главная</button><button data-page="forex"><strong>↗</strong>Forex</button><button data-page="analytics"><strong>▥</strong>Аналитика</button><button data-page="accounts"><strong>▣</strong>Аккаунты</button>
+</nav>
+<script>
+const pages={
+home:["Главная","Все торговые данные в одном месте. Выберите нужный раздел."],
+forex:["Forex-журнал","Здесь будет таблица сделок, карточки сделок, фильтры и прикреплённые скриншоты."],
+crypto:["Crypto-журнал","Раздел подготовлен. Пока сделок нет."],
+missedfx:["Пропущенные Forex","Отдельный журнал пропущенных входов. Эти сделки не влияют на P&L торговых аккаунтов."],
+missedcrypto:["Пропущенные Crypto","Раздел подготовлен. Пока записей нет."],
+analytics:["Аналитика","Фильтр «Все аккаунты», аналитика выбранного счёта и сравнение аккаунтов."],
+accounts:["Торговые аккаунты","Здесь можно будет добавлять аккаунты разных проп-компаний и задавать их параметры."]
+};
+function openPage(key){const p=pages[key]||pages.home;document.getElementById("pageTitle").textContent=p[0];document.getElementById("pageIntro").textContent=p[1];document.querySelectorAll(".tile").forEach(x=>x.classList.toggle("active",x.dataset.page===key));if(key!=="home"){document.querySelector(".section-title").textContent="Раздел";document.getElementById("tiles").style.display="none";document.querySelectorAll(".panel").forEach(x=>x.style.display="none");}else{document.querySelector(".section-title").textContent="Рабочие разделы";document.getElementById("tiles").style.display="grid";document.querySelectorAll(".panel").forEach(x=>x.style.display="block");}}
+document.querySelectorAll("[data-page]").forEach(x=>x.addEventListener("click",()=>openPage(x.dataset.page)));
+if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+</body></html>
