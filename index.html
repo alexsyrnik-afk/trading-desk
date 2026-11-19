@@ -34,6 +34,12 @@
 
 .trade-account{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--muted);font-size:10px;line-height:1.3}
 .trade-account strong{color:var(--text);font-weight:600}
+
+.trade-card-heading{align-items:flex-start;gap:12px}
+.trade-card-heading h3{min-width:0}
+.trade-result-account{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:0 0 auto;text-align:right}
+.trade-account-line{font-size:10px;line-height:1.3;color:var(--muted);white-space:nowrap}
+@media(max-width:620px){.trade-card-heading{flex-wrap:wrap}.trade-result-account{margin-left:auto}.trade-account-line{white-space:normal}}
 </style>
 </head><body>
 <header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account" id="userBadge">ОБЛАЧНЫЙ КАБИНЕТ<strong>Не выполнен вход</strong></div></div></header>
@@ -355,8 +361,7 @@ async function loadTrades(){
   const card=document.createElement('article');card.className='trade';card.id=`trade-card-${t.id}`;
   const date=t.entry_at?new Date(t.entry_at).toLocaleDateString('ru-RU'):(legacyTradeDate(t)||'Дата не указана');
   const pnl=netPnl(t);
-  card.innerHTML=`<div class="between"><h3>Сделка №${escapeHtml(t.trade_number??'—')} · ${escapeHtml(t.instrument??'Инструмент не указан')}</h3><span class="pnl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>0?'+':''}$${pnl.toFixed(2)}</span></div>
-  ${(()=>{const a=accountMap.get(String(t.account_id));if(!a)return '<div class="trade-account">Аккаунт: не указан</div>';const parts=[a.company,a.account_name].filter(Boolean);const name=parts.join(' · ')||'Торговый аккаунт';const stage=(a.status||'Challenge')==='Challenge'&&a.current_stage?' · '+a.current_stage:'';return `<div class="trade-account">Аккаунт: <strong>${escapeHtml(name)}</strong> · ${escapeHtml(money(a.account_size))} · ${escapeHtml(a.status||'Challenge')}${escapeHtml(stage)}</div>`})()}
+  card.innerHTML=`<div class="between trade-card-heading"><h3>Сделка №${escapeHtml(t.trade_number??'—')} · ${escapeHtml(t.instrument??'Инструмент не указан')}</h3><div class="trade-result-account"><span class="pnl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>0?'+':''}$${pnl.toFixed(2)}</span>${(()=>{const a=accountMap.get(String(t.account_id));if(!a)return '<span class="trade-account-line">Аккаунт не указан</span>';const status=a.status||'Challenge';const stage=status==='Challenge'&&a.current_stage?' · '+a.current_stage:'';return `<span class="trade-account-line">${escapeHtml(a.company||'')} · ${escapeHtml(money(a.account_size))} · ${escapeHtml(status)}${escapeHtml(stage)}</span>`})()}</div></div>
   <div class="meta">${escapeHtml(date)} · ${escapeHtml(t.direction??'')} · ${escapeHtml(t.pattern??'')} · ${escapeHtml(t.trade_context??'')} · ${escapeHtml(t.timeframe??'')} · Результат: ${escapeHtml(resultLabel(t.result))} · ${escapeHtml(tradeDuration(t))} · Риск: ${t.risk_percent==null?'—':escapeHtml(t.risk_percent)+'%' } · Своп: ${t.swap==null?'—':money(t.swap)}</div>
   <div class="trade-actions"><button class="btn primary" data-add="${t.id}">＋ Добавить скриншот</button><button class="btn" data-edit="${t.id}">Редактировать данные</button><button class="btn danger" data-delete="${t.id}">Удалить сделку</button><input type="file" accept="image/*" multiple class="hidden" id="files-${t.id}"></div>
   <div class="hint pnl-breakdown">До расходов: ${money(t.pnl_amount)} · Комиссия: ${money(-Math.abs(Number(t.commission||0)))} · Своп: ${money(t.swap||0)} · Чистый итог: ${money(netPnl(t))}</div>
