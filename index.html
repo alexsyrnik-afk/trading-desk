@@ -31,6 +31,9 @@
 .trade>.hint{font-size:10px;margin-top:4px}
 .trade .edit-trade-form{margin-top:8px}
 
+
+.trade-account{display:inline-flex;align-items:center;gap:5px;margin-top:5px;padding:4px 8px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--muted);font-size:10px;line-height:1.3}
+.trade-account strong{color:var(--text);font-weight:600}
 </style>
 </head><body>
 <header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account" id="userBadge">ОБЛАЧНЫЙ КАБИНЕТ<strong>Не выполнен вход</strong></div></div></header>
@@ -39,7 +42,7 @@
 <section id="appView" class="hidden">
 <h1 id="pageTitle">Главная</h1><p class="intro" id="pageIntro">Все торговые данные в одном месте. Выберите нужный раздел.</p>
 <div id="homeView"><div class="section-title">Рабочие разделы</div><div class="grid" id="tiles"><button class="tile" data-page="forex"><div class="ico">📈</div><b>Forex-журнал</b><span>Реальные сделки и история</span></button><button class="tile" data-page="crypto"><div class="ico">₿</div><b>Crypto-журнал</b><span>Реальные криптосделки</span></button><button class="tile" data-page="missedfx"><div class="ico">👁</div><b>Пропущенные Forex</b><span>Неоткрытые сделки и гипотетический результат</span></button><button class="tile" data-page="missedcrypto"><div class="ico">◉</div><b>Пропущенные Crypto</b><span>Неоткрытые сделки и гипотетический результат</span></button><button class="tile" data-page="analytics"><div class="ico">📊</div><b>Аналитика</b><span>Общая и по каждому аккаунту</span></button><button class="tile" data-page="accounts"><div class="ico">▣</div><b>Торговые аккаунты</b><span>Компании, счета и лимиты</span></button></div>
-<div class="section-title">Текущий аккаунт</div><section class="panel"><h2>FundingPips · $100 000</h2><p>Подключённый облачный аккаунт. Статистика будет загружаться из базы.</p></section></div>
+</div>
 
 <section id="calendarView" class="hidden">
 <div class="section-title">Календарь сделок</div>
@@ -315,8 +318,15 @@ function folderForTrade(t){const r=String(t.result||'').toUpperCase();const mark
 function setJournalTab(tab){const cal=tab==='calendar';$('journalTradesPane').classList.toggle('hidden',cal);$('tradeCalendarPanel').classList.toggle('hidden',!cal);$('journalTradesTab').classList.toggle('active',!cal);$('journalCalendarTab').classList.toggle('active',cal)}
 async function loadTrades(){
  const list=$('tradeList');list.innerHTML='';status($('tradeStatus'),'Загружаю сделки…');
- const {data:trades,error}=await supabase.from('trades').select('*').eq('user_id',currentUser.id).eq('market','forex').order('trade_number',{ascending:true});
+ const [tradeResult,accountResult]=await Promise.all([
+  supabase.from('trades').select('*').eq('user_id',currentUser.id).eq('market','forex').order('trade_number',{ascending:true}),
+  supabase.from('trading_accounts').select('id,company,account_name,account_size,status,current_stage,account_type,challenge_stage').eq('user_id',currentUser.id)
+ ]);
+ const {data:trades,error}=tradeResult;
  if(error){status($('tradeStatus'),'Ошибка загрузки сделок: '+error.message,true);return}
+ if(accountResult.error){console.warn('Не удалось загрузить названия аккаунтов:',accountResult.error.message);}
+ const accountMap=new Map((accountResult.data||[]).map(a=>[String(a.id),a]));
+ window.tradeAccountMap=accountMap;
  const rows=[...(trades||[])];window.cachedTrades=[...rows];
  const stamp=t=>{
   const raw=t.closed_at||t.entry_at||t.legacy_data?.excel_date||t.legacy_data?.Дата||null;
@@ -346,6 +356,7 @@ async function loadTrades(){
   const date=t.entry_at?new Date(t.entry_at).toLocaleDateString('ru-RU'):(legacyTradeDate(t)||'Дата не указана');
   const pnl=netPnl(t);
   card.innerHTML=`<div class="between"><h3>Сделка №${escapeHtml(t.trade_number??'—')} · ${escapeHtml(t.instrument??'Инструмент не указан')}</h3><span class="pnl" style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>0?'+':''}$${pnl.toFixed(2)}</span></div>
+  ${(()=>{const a=accountMap.get(String(t.account_id));if(!a)return '<div class="trade-account">Аккаунт: не указан</div>';const parts=[a.company,a.account_name].filter(Boolean);const name=parts.join(' · ')||'Торговый аккаунт';const stage=(a.status||'Challenge')==='Challenge'&&a.current_stage?' · '+a.current_stage:'';return `<div class="trade-account">Аккаунт: <strong>${escapeHtml(name)}</strong> · ${escapeHtml(money(a.account_size))} · ${escapeHtml(a.status||'Challenge')}${escapeHtml(stage)}</div>`})()}
   <div class="meta">${escapeHtml(date)} · ${escapeHtml(t.direction??'')} · ${escapeHtml(t.pattern??'')} · ${escapeHtml(t.trade_context??'')} · ${escapeHtml(t.timeframe??'')} · Результат: ${escapeHtml(resultLabel(t.result))} · ${escapeHtml(tradeDuration(t))} · Риск: ${t.risk_percent==null?'—':escapeHtml(t.risk_percent)+'%' } · Своп: ${t.swap==null?'—':money(t.swap)}</div>
   <div class="trade-actions"><button class="btn primary" data-add="${t.id}">＋ Добавить скриншот</button><button class="btn" data-edit="${t.id}">Редактировать данные</button><button class="btn danger" data-delete="${t.id}">Удалить сделку</button><input type="file" accept="image/*" multiple class="hidden" id="files-${t.id}"></div>
   <div class="hint pnl-breakdown">До расходов: ${money(t.pnl_amount)} · Комиссия: ${money(-Math.abs(Number(t.commission||0)))} · Своп: ${money(t.swap||0)} · Чистый итог: ${money(netPnl(t))}</div>
