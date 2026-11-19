@@ -40,6 +40,16 @@
 .trade-result-account{display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex:0 0 auto;text-align:right}
 .trade-account-line{font-size:10px;line-height:1.3;color:var(--muted);white-space:nowrap}
 @media(max-width:620px){.trade-card-heading{flex-wrap:wrap}.trade-result-account{margin-left:auto}.trade-account-line{white-space:normal}}
+
+.trade-filters{padding:14px;margin-top:12px}
+.filter-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 12px}
+.filter-grid .field{margin:8px 0}
+.filter-footer{display:flex;justify-content:space-between;align-items:end;gap:12px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px;margin-top:5px}
+.filter-footer .row{align-items:end}
+.filter-summary{font-size:12px;color:var(--muted);padding-bottom:10px;line-height:1.5}
+.sort-field{min-width:170px;margin:0}
+@media(max-width:700px){.filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:430px){.filter-grid{grid-template-columns:1fr}.filter-footer .row{width:100%}.sort-field{flex:1}}
 </style>
 </head><body>
 <header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account" id="userBadge">ОБЛАЧНЫЙ КАБИНЕТ<strong>Не выполнен вход</strong></div></div></header>
@@ -102,7 +112,21 @@
 </form></div>
 <div class="journal-tabs"><button class="btn active" type="button" id="journalTradesTab">Сделки</button><button class="btn" type="button" id="journalCalendarTab">Календарь</button></div>
 <div id="journalTradesPane">
-<div class="between" style="margin:12px 0"><label class="field" style="margin:0;min-width:220px">Сортировка сделок<select id="tradeSortOrder"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option></select></label></div>
+<div class="panel trade-filters">
+<h2>Фильтры сделок</h2>
+<div class="filter-grid">
+<label class="field">Паттерн<select id="filterPattern"><option value="">Все паттерны</option><option>Пин-бар</option><option>Fakey</option><option>Inside Bar</option><option>PPR</option><option>Outside Bar</option><option>Другое</option></select></label>
+<label class="field">Торговая ситуация<select id="filterContext"><option value="">Все ситуации</option><option>По тренду</option><option>От зоны</option><option>По тренду и от зоны</option></select></label>
+<label class="field">ТФ входа<select id="filterTimeframe"><option value="">Все таймфреймы</option><option>H4</option><option>H3</option><option>H1</option><option>M30</option><option>M15</option><option>1D</option><option>Другое</option></select></label>
+<label class="field">Результат<select id="filterResult"><option value="">Любой результат</option><option value="TP">TP</option><option value="PT">TP (частично)</option><option value="SL">SL</option><option value="PS">SL (частично)</option><option value="BE">Безубыток</option></select></label>
+<label class="field">Валютная пара<select id="filterInstrument"><option value="">Все пары</option></select></label>
+<label class="field">Торговый аккаунт<select id="filterAccount"><option value="">Все аккаунты</option></select></label>
+</div>
+<div class="filter-footer">
+<div class="filter-summary" id="filterSummary">Все сделки</div>
+<div class="row"><label class="field sort-field">Сортировка<select id="tradeSortOrder"><option value="newest">Сначала новые</option><option value="oldest">Сначала старые</option></select></label><button class="btn" type="button" id="resetTradeFilters">Сбросить фильтры</button></div>
+</div>
+</div>
 <div id="tradeStatus" class="status hidden"></div><div id="tradeList"></div></div>
 <div class="panel hidden" id="tradeCalendarPanel"><div class="calendar-toolbar"><button class="btn" id="calendarPrev">←</button><strong id="calendarMonth">Календарь сделок</strong><button class="btn" id="calendarNext">→</button></div><div class="calendar-head"><span>Пн</span><span>Вт</span><span>Ср</span><span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span></div><div class="calendar-grid" id="tradeCalendar"></div><p class="hint">Цвет дня показывает суммарный фактический P&amp;L закрытых сделок. Наведи курсор на дату, чтобы увидеть список сделок за день.</p></div>
 </section>
@@ -161,7 +185,9 @@ $('logoutBtn').addEventListener('click',async()=>{await supabase.auth.signOut();
 $('accountsRefresh').addEventListener('click',loadAccounts);$('accountForm').addEventListener('submit',saveAccount);$('tradeForm').addEventListener('submit',saveTrade);
 $('instrumentSelect').addEventListener('change',e=>{$('otherPairWrap').classList.toggle('hidden',e.target.value!=='OTHER');$('instrumentOther').required=e.target.value==='OTHER';});
 $('calendarPrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderTradeCalendar(window.cachedTrades||[]);});
-$('calendarNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderTradeCalendar(window.cachedTrades||[]);});$('calendarPagePrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderCalendarPage()});$('calendarPageNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendarPage()});$('tradeSortOrder')?.addEventListener('change',loadTrades);$('journalTradesTab').addEventListener('click',()=>setJournalTab('trades'));$('journalCalendarTab').addEventListener('click',()=>setJournalTab('calendar'));
+$('calendarNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderTradeCalendar(window.cachedTrades||[]);});$('calendarPagePrev').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()-1);renderCalendarPage()});$('calendarPageNext').addEventListener('click',()=>{calendarMonth.setMonth(calendarMonth.getMonth()+1);renderCalendarPage()});$('tradeSortOrder')?.addEventListener('change',loadTrades);
+['filterPattern','filterContext','filterTimeframe','filterResult','filterInstrument','filterAccount'].forEach(id=>$(id)?.addEventListener('change',loadTrades));
+$('resetTradeFilters')?.addEventListener('click',()=>{['filterPattern','filterContext','filterTimeframe','filterResult','filterInstrument','filterAccount'].forEach(id=>{if($(id))$(id).value='';});loadTrades();});$('journalTradesTab').addEventListener('click',()=>setJournalTab('trades'));$('journalCalendarTab').addEventListener('click',()=>setJournalTab('calendar'));
 async function loadHomeCalendar(){
  const {data:rows,error}=await supabase.from('trades').select('*').eq('user_id',currentUser.id).eq('market','forex').eq('trade_type','actual');
  if(error){$('homeTradeCalendar').innerHTML='<div class="empty">Не удалось загрузить календарь: '+escapeHtml(error.message)+'</div>';return}
@@ -322,6 +348,36 @@ function drawEquity(values){const svg=$('equityChart');svg.innerHTML='';const NS
  const W=800,H=220,pad=24;const vals=[0,...values];let min=Math.min(0,...vals),max=Math.max(0,...vals);if(max===min){max=min+1}const y=v=>H-pad-(v-min)/(max-min)*(H-pad*2);add('line',{x1:pad,y1:y(0),x2:W-pad,y2:y(0),stroke:'#405066','stroke-width':'1','stroke-dasharray':'4 5'});const points=vals.map((v,i)=>`${pad+i*(W-2*pad)/Math.max(1,vals.length-1)},${y(v)}`).join(' ');add('polyline',{points,fill:'none',stroke:values.at(-1)>=0?'#45c49a':'#ff7b83','stroke-width':'3','stroke-linecap':'round','stroke-linejoin':'round'});add('text',{x:pad,y:16,fill:'#93a2b4','font-size':'11'}).textContent=money(max);add('text',{x:pad,y:H-5,fill:'#93a2b4','font-size':'11'}).textContent=money(min)}
 function folderForTrade(t){const r=String(t.result||'').toUpperCase();const market=String(t.market||'forex').toLowerCase();if(r==='TP'||r==='PT')return market+'-tp';if(r==='SL'||r==='PS')return market+'-sl';if(r==='BE')return market+'-be';return market+'-tp'}
 function setJournalTab(tab){const cal=tab==='calendar';$('journalTradesPane').classList.toggle('hidden',cal);$('tradeCalendarPanel').classList.toggle('hidden',!cal);$('journalTradesTab').classList.toggle('active',!cal);$('journalCalendarTab').classList.toggle('active',cal)}
+function populateTradeFilterOptions(rows,accountMap){
+ const instrument=$('filterInstrument'),account=$('filterAccount');
+ const selectedInstrument=instrument.value,selectedAccount=account.value;
+ const instruments=[...new Set(rows.map(t=>String(t.instrument||'').trim()).filter(Boolean))].sort();
+ instrument.innerHTML='<option value="">Все пары</option>'+instruments.map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
+ if(instruments.includes(selectedInstrument))instrument.value=selectedInstrument;
+ const accounts=[...accountMap.values()];
+ account.innerHTML='<option value="">Все аккаунты</option>'+accounts.map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.company||'Компания')} · ${escapeHtml(a.account_name||'Аккаунт')}</option>`).join('');
+ if(accounts.some(a=>String(a.id)===selectedAccount))account.value=selectedAccount;
+}
+function applyTradeFilters(rows){
+ const value=id=>$(id)?.value||'';
+ const pattern=value('filterPattern'),context=value('filterContext'),timeframe=value('filterTimeframe');
+ const result=value('filterResult'),instrument=value('filterInstrument'),account=value('filterAccount');
+ return rows.filter(t=>
+  (!pattern||String(t.pattern||'')===pattern)&&
+  (!context||String(t.trade_context||'')===context)&&
+  (!timeframe||String(t.timeframe||'')===timeframe)&&
+  (!result||String(t.result||'').toUpperCase()===result)&&
+  (!instrument||String(t.instrument||'')===instrument)&&
+  (!account||String(t.account_id||'')===account)
+ );
+}
+function updateTradeFilterSummary(rows){
+ const count=rows.length,wins=rows.filter(t=>['TP','PT'].includes(String(t.result||'').toUpperCase())).length;
+ const losses=rows.filter(t=>['SL','PS'].includes(String(t.result||'').toUpperCase())).length;
+ const eligible=wins+losses,rate=eligible?Math.round(wins/eligible*100):null;
+ const pnl=rows.reduce((sum,t)=>sum+netPnl(t),0);
+ $('filterSummary').innerHTML=`Найдено сделок: <strong>${count}</strong> · Winrate: <strong>${rate===null?'—':rate+'%'}</strong> · Чистый P&amp;L: <strong style="color:${pnl>=0?'var(--green)':'var(--red)'}">${pnl>0?'+':''}${money(pnl)}</strong>`;
+}
 async function loadTrades(){
  const list=$('tradeList');list.innerHTML='';status($('tradeStatus'),'Загружаю сделки…');
  const [tradeResult,accountResult]=await Promise.all([
@@ -355,9 +411,16 @@ async function loadTrades(){
   return String(a.id||'').localeCompare(String(b.id||''));
  });
  renderTradeCalendar(rows);if(currentPage==='home')renderTradeCalendar(rows,'homeTradeCalendar','homeCalendarMonth');
- if(!rows.length){status($('tradeStatus'),'Forex-сделки пока не найдены.');return}
+ populateTradeFilterOptions(rows,accountMap);
+ const filteredRows=applyTradeFilters(rows);
+ updateTradeFilterSummary(filteredRows);
+ if(!filteredRows.length){
+  if(!rows.length)status($('tradeStatus'),'Forex-сделки пока не найдены.');
+  else {$('tradeStatus').classList.add('hidden');list.innerHTML='<div class="empty">По выбранным фильтрам сделок не найдено. Измени условия или сбрось фильтры.</div>';}
+  return;
+ }
  $('tradeStatus').classList.add('hidden');
- for(const t of rows){
+ for(const t of filteredRows){
   const card=document.createElement('article');card.className='trade';card.id=`trade-card-${t.id}`;
   const date=t.entry_at?new Date(t.entry_at).toLocaleDateString('ru-RU'):(legacyTradeDate(t)||'Дата не указана');
   const pnl=netPnl(t);
