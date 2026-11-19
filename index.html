@@ -14,7 +14,24 @@
 .positive{color:var(--green)!important}.negative{color:var(--red)!important}
 @media(max-width:720px){.calendar-page-layout{grid-template-columns:1fr}.calendar-month-metrics{grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.calendar-month-metrics .metric{padding:10px;min-height:88px}.calendar-month-metrics .metric span{font-size:10px}.calendar-month-metrics .metric strong{font-size:17px}}
 .pnl-breakdown{margin:5px 0 8px;font-size:11px}.notes-preview{margin:10px 0 12px;padding:10px 12px;border-radius:9px;background:rgba(120,140,165,.08);font-size:13px;line-height:1.5}.notes-text{white-space:normal;overflow-wrap:anywhere}.notes-text strong{color:var(--muted);margin-right:5px}
-.trade.calendar-focus{outline:3px solid var(--accent);outline-offset:3px;transition:outline .2s}</style>
+.trade.calendar-focus{outline:3px solid var(--accent);outline-offset:3px;transition:outline .2s}
+/* Compact trade list */
+.trade{padding:10px 13px;margin-top:8px;border-radius:12px}
+.trade h3{font-size:14px;line-height:1.25}
+.trade .pnl{font-size:15px}
+.trade .meta{font-size:11px;line-height:1.35;margin-top:3px}
+.trade-actions{gap:6px;margin-top:7px}
+.trade-actions .btn{padding:6px 9px;font-size:11px}
+.trade .pnl-breakdown{font-size:10px;margin:4px 0 5px}
+.trade .notes-preview{padding:6px 9px;margin:5px 0 6px;font-size:11px;line-height:1.35}
+.trade .images{gap:6px;margin-top:6px}
+.trade .shot{width:76px}
+.trade .shot img{height:48px}
+.trade .shot button{padding:4px;font-size:10px}
+.trade>.hint{font-size:10px;margin-top:4px}
+.trade .edit-trade-form{margin-top:8px}
+
+</style>
 </head><body>
 <header><div class="wrap top"><div><div class="brand">TRADING DESK</div><div class="sub">Личный торговый кабинет</div></div><div class="account" id="userBadge">ОБЛАЧНЫЙ КАБИНЕТ<strong>Не выполнен вход</strong></div></div></header>
 <main>
@@ -301,9 +318,26 @@ async function loadTrades(){
  const {data:trades,error}=await supabase.from('trades').select('*').eq('user_id',currentUser.id).eq('market','forex').order('trade_number',{ascending:true});
  if(error){status($('tradeStatus'),'Ошибка загрузки сделок: '+error.message,true);return}
  const rows=[...(trades||[])];window.cachedTrades=[...rows];
- const stamp=t=>{const v=t.closed_at||t.entry_at||t.legacy_data?.excel_date;if(!v)return null;const n=new Date(v).getTime();return Number.isFinite(n)?n:null};
+ const stamp=t=>{
+  const raw=t.closed_at||t.entry_at||t.legacy_data?.excel_date||t.legacy_data?.Дата||null;
+  if(raw===null||raw===undefined||raw==='')return null;
+  if(typeof raw==='number'&&raw>20000&&raw<80000)return Date.UTC(1899,11,30)+raw*86400000;
+  const str=String(raw).trim();
+  const ru=str.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?:\s+(\d{1,2}):(\d{2}))?$/);
+  if(ru){const d=new Date(Number(ru[3]),Number(ru[2])-1,Number(ru[1]),Number(ru[4]||0),Number(ru[5]||0));return Number.isNaN(d.getTime())?null:d.getTime();}
+  const n=Date.parse(str);return Number.isFinite(n)?n:null;
+ };
  const direction=$('tradeSortOrder')?.value||'newest';
- rows.sort((a,b)=>{const ad=stamp(a),bd=stamp(b);if(ad!==null&&bd!==null&&ad!==bd)return direction==='newest'?bd-ad:ad-bd;if(ad!==null&&bd===null)return -1;if(ad===null&&bd!==null)return 1;const n=Number(a.trade_number||0)-Number(b.trade_number||0);return direction==='newest'?-n:n});
+ const num=t=>{const n=Number(t.trade_number);return Number.isFinite(n)?n:null};
+ rows.sort((a,b)=>{
+  const ad=stamp(a),bd=stamp(b);
+  if(ad!==null&&bd!==null&&ad!==bd)return direction==='newest'?bd-ad:ad-bd;
+  if(ad!==null&&bd===null)return -1;
+  if(ad===null&&bd!==null)return 1;
+  const an=num(a),bn=num(b);
+  if(an!==null&&bn!==null&&an!==bn)return direction==='newest'?bn-an:an-bn;
+  return String(a.id||'').localeCompare(String(b.id||''));
+ });
  renderTradeCalendar(rows);if(currentPage==='home')renderTradeCalendar(rows,'homeTradeCalendar','homeCalendarMonth');
  if(!rows.length){status($('tradeStatus'),'Forex-сделки пока не найдены.');return}
  $('tradeStatus').classList.add('hidden');
